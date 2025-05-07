@@ -1,12 +1,27 @@
-import { View, Text, Image, StyleSheet, Pressable } from "react-native";
+import {
+  Text,
+  Image,
+  StyleSheet,
+  Pressable,
+  View,
+  Animated,
+} from "react-native";
 import { useMusic } from "@/context/MusicContext";
 import { useAudioPlayer } from "expo-audio";
-import { useEffect, useState } from "react";
-import { PauseIcon, PlayIcon } from "lucide-react-native";
+import { useEffect, useState, useRef } from "react";
+import { BottomSheetView } from "@gorhom/bottom-sheet";
+import { Ionicons } from "@expo/vector-icons";
 
-const SongDetailsSheet = () => {
+type SongDetailsSheetProps = {
+  onClose?: () => void;
+};
+
+const SongDetailsSheet = ({ onClose }: SongDetailsSheetProps) => {
   const { song } = useMusic();
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // Animation for content appearing
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const audioSource = song?.downloadUrl[song.downloadUrl.length - 1].url ?? "";
   const player = useAudioPlayer(audioSource);
@@ -15,6 +30,15 @@ const SongDetailsSheet = () => {
     player.pause();
     setIsPlaying(false);
   }, [audioSource]);
+
+  // Fade in animation when component mounts
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
   const handlePlayPause = () => {
     if (isPlaying) {
@@ -28,25 +52,51 @@ const SongDetailsSheet = () => {
   if (!song) return null;
 
   return (
-    <View style={styles.container}>
-      <Image
-        source={{ uri: song.image[song.image.length - 1].url }}
-        style={styles.coverImage}
-      />
-      <View style={styles.textContainer}>
+    <BottomSheetView style={styles.container}>
+      <Animated.View
+        style={{
+          opacity: fadeAnim,
+          transform: [
+            {
+              translateY: fadeAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0],
+              }),
+            },
+          ],
+          width: "100%",
+        }}
+      >
+        {/* Close button at the top right */}
+        <View style={styles.header}>
+          <Pressable
+            onPress={onClose}
+            style={styles.closeButton}
+            hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
+          >
+            <Ionicons name="chevron-down" size={28} color="#fff" />
+          </Pressable>
+        </View>
+
+        <Image
+          source={{ uri: song.image[song.image.length - 1].url }}
+          style={styles.coverImage}
+        />
         <Text style={styles.songTitle} numberOfLines={1}>
           {song.name}
         </Text>
         <Text style={styles.artist} numberOfLines={1}>
           {song.artists.primary.map((artist) => artist.name).join(", ")}
         </Text>
-      </View>
-      <View style={styles.controls}>
-        <Pressable onPress={handlePlayPause} style={styles.iconWrapper}>
-          {isPlaying ? <PauseIcon size={36} /> : <PlayIcon size={36} />}
+        <Pressable onPress={handlePlayPause} style={styles.playButton}>
+          <Ionicons
+            name={isPlaying ? "pause-circle" : "play-circle"}
+            size={60}
+            color="#1DB954"
+          />
         </Pressable>
-      </View>
-    </View>
+      </Animated.View>
+    </BottomSheetView>
   );
 };
 
@@ -56,6 +106,17 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     alignItems: "center",
+    zIndex: 1000,
+    flex: 1,
+  },
+  header: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    marginBottom: 10,
+  },
+  closeButton: {
+    padding: 5,
   },
   coverImage: {
     width: 300,
@@ -63,25 +124,22 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 24,
   },
-  textContainer: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
   songTitle: {
     fontSize: 24,
     color: "white",
     fontWeight: "bold",
+    textAlign: "center",
+    marginHorizontal: 20,
   },
   artist: {
     fontSize: 16,
     color: "#ccc",
     marginTop: 4,
+    marginBottom: 30,
+    textAlign: "center",
   },
-  controls: {
-    flexDirection: "row",
+  playButton: {
+    alignItems: "center",
     justifyContent: "center",
-  },
-  iconWrapper: {
-    padding: 16,
   },
 });

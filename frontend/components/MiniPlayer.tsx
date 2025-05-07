@@ -1,55 +1,99 @@
-import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Animated,
+} from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { Ionicons } from "@expo/vector-icons";
+import { useState, useEffect, useRef } from "react";
 
 export default function MiniPlayer({
   onOpen,
   song,
+  slideAnimation,
 }: {
   onOpen: () => void;
   song: Song;
+  slideAnimation: Animated.Value;
 }) {
   const audioSource = song.downloadUrl[song.downloadUrl.length - 1].url;
   const player = useAudioPlayer(audioSource);
+  const [isPlaying, setIsPlaying] = useState(player.playing);
 
-  const isPlaying = player.playing;
+  // Calculate transform for sliding effect
+  const translateY = slideAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 100], // Slide down by 100 units when sheet is visible
+  });
+
+  // Calculate opacity for fade effect
+  const opacity = slideAnimation.interpolate({
+    inputRange: [0, 0.8],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
 
   return (
-    <TouchableOpacity
-      onPress={onOpen}
-      activeOpacity={0.9}
-      style={styles.container}
+    <Animated.View
+      style={[
+        styles.animatedContainer,
+        {
+          transform: [{ translateY }],
+          opacity,
+        },
+      ]}
     >
-      <Image
-        source={{ uri: song.image[song.image.length - 1].url }}
-        style={styles.image}
-      />
-      <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={1}>
-          {song.name}
-        </Text>
-        <Text style={styles.artist} numberOfLines={1}>
-          {song.artists.primary.map((a) => a.name).join(", ")}
-        </Text>
-      </View>
       <TouchableOpacity
-        onPress={(e) => {
-          e.stopPropagation();
-          isPlaying ? player.pause() : player.play();
-        }}
+        onPress={onOpen}
+        activeOpacity={0.9}
+        style={styles.container}
       >
-        <Ionicons
-          name={isPlaying ? "pause" : "play"}
-          size={28}
-          color="white"
-          style={styles.icon}
+        <Image
+          source={{ uri: song.image[song.image.length - 1].url }}
+          style={styles.image}
         />
+        <View style={styles.info}>
+          <Text style={styles.title} numberOfLines={1}>
+            {song.name}
+          </Text>
+          <Text style={styles.artist} numberOfLines={1}>
+            {song.artists.primary.map((a) => a.name).join(", ")}
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation();
+            if (isPlaying) {
+              player.pause();
+            } else {
+              player.play();
+            }
+            setIsPlaying(player.playing);
+          }}
+        >
+          <Ionicons
+            name={isPlaying ? "pause-circle" : "play-circle"}
+            size={32}
+            color="#1DB954"
+            style={styles.icon}
+          />
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  animatedContainer: {
+    position: "absolute",
+    bottom: 48, // Tab bar height approx
+    left: 0,
+    right: 0,
+    zIndex: 10, // Make sure it's on top
+  },
   container: {
     flexDirection: "row",
     backgroundColor: "#121212",
@@ -57,11 +101,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#282828",
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    width: "100%",
   },
+
   image: {
     width: 48,
     height: 48,
