@@ -7,10 +7,10 @@ import {
   Animated,
 } from "react-native";
 import { useMusic } from "@/context/MusicContext";
-import { useAudioPlayer } from "expo-audio";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { BottomSheetView } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
+import { usePlayer } from "@/context/AudioPlayerContext";
 
 type SongDetailsSheetProps = {
   onClose?: () => void;
@@ -18,20 +18,19 @@ type SongDetailsSheetProps = {
 
 const SongDetailsSheet = ({ onClose }: SongDetailsSheetProps) => {
   const { song } = useMusic();
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  // Animation for content appearing
+  const { setAudioSource, isPlaying, playSong } = usePlayer();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const audioSource = song?.downloadUrl[song.downloadUrl.length - 1].url ?? "";
-  const player = useAudioPlayer(audioSource);
 
+  // ← NEW: only update the provider when audioSource changes,
+  //     after the component has rendered
   useEffect(() => {
-    player.pause();
-    setIsPlaying(false);
-  }, [audioSource]);
+    if (audioSource) {
+      setAudioSource(audioSource);
+    }
+  }, [audioSource, setAudioSource]);
 
-  // Fade in animation when component mounts
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -39,15 +38,6 @@ const SongDetailsSheet = ({ onClose }: SongDetailsSheetProps) => {
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
-
-  const handlePlayPause = () => {
-    if (isPlaying) {
-      player.pause();
-    } else {
-      player.play();
-    }
-    setIsPlaying(!isPlaying);
-  };
 
   if (!song) return null;
 
@@ -88,7 +78,7 @@ const SongDetailsSheet = ({ onClose }: SongDetailsSheetProps) => {
         <Text style={styles.artist} numberOfLines={1}>
           {song.artists.primary.map((artist) => artist.name).join(", ")}
         </Text>
-        <Pressable onPress={handlePlayPause} style={styles.playButton}>
+        <Pressable onPress={playSong} style={styles.playButton}>
           <Ionicons
             name={isPlaying ? "pause-circle" : "play-circle"}
             size={60}

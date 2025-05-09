@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   Animated,
 } from "react-native";
-import { useAudioPlayer } from "expo-audio";
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useEffect, useRef } from "react";
+import { usePlayer } from "@/context/AudioPlayerContext";
+import { useEffect } from "react";
 
 export default function MiniPlayer({
   onOpen,
@@ -19,9 +19,12 @@ export default function MiniPlayer({
   song: Song;
   slideAnimation: Animated.Value;
 }) {
+  const { isPlaying, setAudioSource, playSong } = usePlayer();
   const audioSource = song.downloadUrl[song.downloadUrl.length - 1].url;
-  const player = useAudioPlayer(audioSource);
-  const [isPlaying, setIsPlaying] = useState(player.playing);
+
+  useEffect(() => {
+    setAudioSource(audioSource);
+  }, [audioSource, setAudioSource]);
 
   // Calculate transform for sliding effect
   const translateY = slideAnimation.interpolate({
@@ -66,12 +69,7 @@ export default function MiniPlayer({
         <TouchableOpacity
           onPress={(e) => {
             e.stopPropagation();
-            if (isPlaying) {
-              player.pause();
-            } else {
-              player.play();
-            }
-            setIsPlaying(player.playing);
+            playSong();
           }}
         >
           <Ionicons

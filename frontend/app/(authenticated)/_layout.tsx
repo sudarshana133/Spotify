@@ -6,12 +6,7 @@ import {
   BottomSheetModal,
   BottomSheetModalProvider,
 } from "@gorhom/bottom-sheet";
-import React, {
-  useRef,
-  useMemo,
-  useState,
-  useCallback,
-} from "react";
+import React, { useRef, useMemo, useState, useCallback } from "react";
 import MiniPlayer from "@/components/MiniPlayer";
 import SongDetailsSheet from "@/components/SongDetailSheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
