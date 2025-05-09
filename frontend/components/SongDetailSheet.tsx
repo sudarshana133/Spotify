@@ -11,6 +11,9 @@ import { useEffect, useRef } from "react";
 import { BottomSheetView } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { usePlayer } from "@/context/AudioPlayerContext";
+import Slider from "@react-native-community/slider";
+import { useAudioPlayerStatus } from "expo-audio";
+import { formatSecToMin } from "@/utils/formatTimer";
 
 type SongDetailsSheetProps = {
   onClose?: () => void;
@@ -18,18 +21,30 @@ type SongDetailsSheetProps = {
 
 const SongDetailsSheet = ({ onClose }: SongDetailsSheetProps) => {
   const { song } = useMusic();
-  const { setAudioSource, isPlaying, playSong } = usePlayer();
+  const { setAudioSource, isPlaying, playSong, player, setIsPlaying } =
+    usePlayer();
+  const audioStatus = useAudioPlayerStatus(player);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const audioSource = song?.downloadUrl[song.downloadUrl.length - 1].url ?? "";
 
-  // ← NEW: only update the provider when audioSource changes,
-  //     after the component has rendered
   useEffect(() => {
     if (audioSource) {
       setAudioSource(audioSource);
     }
   }, [audioSource, setAudioSource]);
+
+  useEffect(() => {
+    if (
+      audioStatus &&
+      audioStatus.currentTime >= audioStatus.duration &&
+      audioStatus.duration > 0
+    ) {
+      player.seekTo(0);
+      player.play();
+      setIsPlaying(true);
+    }
+  }, [audioStatus.currentTime, audioStatus.duration]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -38,6 +53,10 @@ const SongDetailsSheet = ({ onClose }: SongDetailsSheetProps) => {
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
+
+  const handleValueChange = (payload: number) => {
+    player.seekTo(payload);
+  };
 
   if (!song) return null;
 
@@ -55,9 +74,10 @@ const SongDetailsSheet = ({ onClose }: SongDetailsSheetProps) => {
             },
           ],
           width: "100%",
+          alignItems: "center",
         }}
       >
-        {/* Close button at the top right */}
+        {/* Header with close button */}
         <View style={styles.header}>
           <Pressable
             onPress={onClose}
@@ -68,23 +88,66 @@ const SongDetailsSheet = ({ onClose }: SongDetailsSheetProps) => {
           </Pressable>
         </View>
 
+        {/* Album artwork */}
         <Image
           source={{ uri: song.image[song.image.length - 1].url }}
           style={styles.coverImage}
         />
-        <Text style={styles.songTitle} numberOfLines={1}>
-          {song.name}
-        </Text>
-        <Text style={styles.artist} numberOfLines={1}>
-          {song.artists.primary.map((artist) => artist.name).join(", ")}
-        </Text>
-        <Pressable onPress={playSong} style={styles.playButton}>
-          <Ionicons
-            name={isPlaying ? "pause-circle" : "play-circle"}
-            size={60}
-            color="#1DB954"
+
+        {/* Song info */}
+        <View style={styles.songInfoContainer}>
+          <Text style={styles.songTitle} numberOfLines={1}>
+            {song.name}
+          </Text>
+          <Text style={styles.artist} numberOfLines={1}>
+            {song.artists.primary.map((artist) => artist.name).join(", ")}
+          </Text>
+        </View>
+
+        {/* Progress bar */}
+        <View style={styles.progressContainer}>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={audioStatus.duration}
+            value={audioStatus.currentTime}
+            minimumTrackTintColor="#1DB954"
+            maximumTrackTintColor="#5E5E5E"
+            thumbTintColor="#FFFFFF"
+            onSlidingComplete={(e) => handleValueChange(e)}
           />
-        </Pressable>
+
+          <View style={styles.timeContainer}>
+            <Text style={styles.time}>
+              {formatSecToMin(audioStatus.currentTime.toFixed(2))}
+            </Text>
+            <Text style={styles.time}>
+              {formatSecToMin(audioStatus.duration.toFixed(2))}
+            </Text>
+          </View>
+        </View>
+
+        {/* Playback controls */}
+        <View style={styles.controlsContainer}>
+          {/* Previous song button */}
+          <Pressable style={styles.songNavButton}>
+            <Ionicons name="play-skip-back" size={28} color="#fff" />
+          </Pressable>
+
+          {/* Play/Pause button */}
+          <Pressable onPress={playSong} style={styles.playButton}>
+            <Ionicons
+              name={isPlaying ? "pause-circle" : "play-circle"}
+              size={64}
+              color="#1DB954"
+            />
+          </Pressable>
+
+          {/* Next song button */}
+          <Pressable style={styles.songNavButton}>
+            <Ionicons name="play-skip-forward" size={28} color="#fff" />
+          </Pressable>
+        </View>
       </Animated.View>
     </BottomSheetView>
   );
@@ -95,15 +158,14 @@ export default SongDetailsSheet;
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    alignItems: "center",
-    zIndex: 1000,
     flex: 1,
+    backgroundColor: "#121212",
   },
   header: {
     width: "100%",
     flexDirection: "row",
     justifyContent: "flex-start",
-    marginBottom: 10,
+    marginBottom: 20,
   },
   closeButton: {
     padding: 5,
@@ -111,7 +173,16 @@ const styles = StyleSheet.create({
   coverImage: {
     width: 300,
     height: 300,
-    borderRadius: 16,
+    borderRadius: 10,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  songInfoContainer: {
+    alignItems: "center",
+    width: "100%",
     marginBottom: 24,
   },
   songTitle: {
@@ -123,13 +194,39 @@ const styles = StyleSheet.create({
   },
   artist: {
     fontSize: 16,
-    color: "#ccc",
-    marginTop: 4,
-    marginBottom: 30,
+    color: "#a7a7a7",
+    marginTop: 6,
     textAlign: "center",
   },
-  playButton: {
+  progressContainer: {
+    width: "100%",
+    marginBottom: 24,
+  },
+  slider: {
+    width: "100%",
+    height: 40,
+  },
+  timeContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingHorizontal: 8,
+  },
+  time: {
+    color: "#a7a7a7",
+    fontSize: 12,
+  },
+  controlsContainer: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    width: "100%",
+    paddingVertical: 10,
+  },
+  songNavButton: {
+    padding: 16,
+  },
+  playButton: {
+    marginHorizontal: 24,
   },
 });

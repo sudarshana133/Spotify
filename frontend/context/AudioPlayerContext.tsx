@@ -1,7 +1,8 @@
-import { useAudioPlayer } from "expo-audio";
+import { AudioPlayer, useAudioPlayer } from "expo-audio";
 import { createContext, ReactNode, useContext, useState } from "react";
 
 type AudioPlayerContextType = {
+  player: AudioPlayer;
   isPlaying: boolean;
   setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
   audioSource: string | null;
@@ -19,14 +20,26 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const playSong = () => {
     if (isPlaying) {
       player.pause();
+      setIsPlaying(false);
     } else {
+      if (player.currentTime >= player.duration) {
+        player.seekTo(0);
+      }
       player.play();
+      setIsPlaying(true);
     }
-    setIsPlaying(player.playing);
   };
+
   return (
     <AudioPlayerContext.Provider
-      value={{ audioSource, setAudioSource, isPlaying, setIsPlaying, playSong }}
+      value={{
+        player,
+        audioSource,
+        setAudioSource,
+        isPlaying,
+        setIsPlaying,
+        playSong,
+      }}
     >
       {children}
     </AudioPlayerContext.Provider>
